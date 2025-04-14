@@ -1,58 +1,59 @@
+Here's the **improved version** of your `Assignment.md` in clean, professional Markdown — formatted for clarity, conciseness, and professionalism, while preserving all your original ideas and flow:
 
 ```markdown
 # 📘 Assignment: Cost Optimization Challenge – Managing Billing Records in Azure Serverless Architecture
 
 ## 🔎 Problem Statement
 
-We have a serverless architecture in Azure, where one of our services stores billing records in **Azure Cosmos DB**. Over time, the data size has significantly increased, leading to **high operational costs**. Although the system is **read-heavy**, records older than **three months are rarely accessed**. However, these records still need to be available when requested, with **acceptable latency**.
+We have a serverless architecture in Azure where one of our services stores billing records in **Azure Cosmos DB**. Over time, the data volume has significantly increased, leading to **escalating operational costs**. Although the system is **read-heavy**, records older than **three months are rarely accessed**. These older records still need to be served with **acceptable latency**.
 
 ---
 
 ## ✅ Current Constraints
 
-- **Record Size**: Up to 300 KB per billing record.
-- **Total Records**: More than 2 million.
-- **Read-Heavy Workload**: Rare writes/updates; mostly reads.
-- **Availability Requirement**: Older records should still be accessible within a few seconds.
-- **Technical Constraints**:
-  - ❌ No API contract changes allowed
-  - ❌ No downtime or data loss permitted
-  - ✅ Simple, easy-to-deploy and maintain solution preferred
+- **Record Size**: Up to 300 KB per billing record
+- **Total Records**: Over 2 million
+- **Read Pattern**: Read-heavy; minimal writes/updates
+- **Availability Requirement**: Older records must be accessible within a few seconds
+- **Implementation Requirements**:
+  - ❌ No changes to API contracts
+  - ❌ No downtime or data loss
+  - ✅ Must be simple, scalable, and easy to maintain
 
 ---
 
-## 🎯 Solution Plan A – Tiered Storage Strategy
+## 🎯 Proposed Solution – Tiered Storage Strategy
 
 ### 💡 Core Idea
 
-Split the data into **hot** (active) and **cold** (archived) storage:
+Implement a **hot-cold tiered storage model** by segregating recent (active) and historical (archived) data.
 
-| Type      | Location              | Description                            |
-|-----------|-----------------------|----------------------------------------|
-| Hot Data  | Azure Cosmos DB       | Stores recent (last 3 months) records  |
-| Cold Data | Azure Blob Storage    | Stores older records (archived as JSON)|
+| Tier       | Storage Type         | Description                                  |
+|------------|----------------------|----------------------------------------------|
+| Hot Tier   | Azure Cosmos DB      | Holds records from the last 90 days          |
+| Cold Tier  | Azure Blob Storage   | Stores records older than 90 days (as JSON)  |
 
-An **Azure Function** handles daily archival, while a **read abstraction layer** (Azure Function or API Management policy) makes data access seamless.
-
-
-## ⚙️ Technical Components
-
-### 1. Azure Timer Trigger Function
-
-- Runs daily
-- Queries Cosmos DB for records older than 90 days
-- Moves them to Blob Storage in JSON format
-- Deletes from Cosmos DB after successful archival
-
-### 2. Read Handler Function
-
-- Reads from Cosmos DB first
-- If not found, falls back to Blob Storage
-- Returns data to client without changing API behavior
+An **Azure Timer Trigger Function** handles daily archival. A **read abstraction layer** (via Azure Function or APIM policy) seamlessly retrieves data from either Cosmos DB or Blob Storage.
 
 ---
 
-## 🧪 Example Pseudocode
+## ⚙️ Technical Components
+
+### 1. Archival Function (Timer Trigger)
+
+- Scheduled to run daily
+- Moves records older than 90 days from Cosmos DB to Blob Storage
+- Ensures successful transfer before deletion from Cosmos DB
+
+### 2. Read Handler Function
+
+- Attempts to read from Cosmos DB first
+- Falls back to Blob Storage if record not found
+- Returns consistent data structure to client
+
+---
+
+## 🧪 Implementation Snippets
 
 ### 🔄 Archival Function (Python)
 
@@ -63,15 +64,12 @@ from azure.storage.blob import BlobServiceClient
 import json
 
 def main():
-    # Connect to Cosmos DB
     client = CosmosClient("<COSMOS_URI>", "<KEY>")
     container = client.get_database_client("billingdb").get_container_client("records")
 
-    # Connect to Blob Storage
     blob_service = BlobServiceClient.from_connection_string("<BLOB_CONN>")
     blob_container = blob_service.get_container_client("billing-archive")
 
-    # Get data older than 90 days
     threshold = (datetime.utcnow() - timedelta(days=90)).isoformat()
     query = f"SELECT * FROM c WHERE c.timestamp < '{threshold}'"
     old_records = container.query_items(query, enable_cross_partition_query=True)
@@ -84,7 +82,7 @@ def main():
 
 ---
 
-### 🔍 Read Handler with Fallback Logic
+### 🔍 Read Handler Function (Python)
 
 ```python
 from azure.cosmos import CosmosClient
@@ -92,12 +90,9 @@ from azure.storage.blob import BlobServiceClient
 import json
 
 def get_billing_record(record_id):
-    # Try Cosmos DB
     cosmos_result = try_cosmos(record_id)
     if cosmos_result:
         return cosmos_result
-
-    # Try Blob Storage
     return try_blob_storage(record_id)
 
 def try_cosmos(record_id):
@@ -122,34 +117,40 @@ def try_blob_storage(record_id):
 
 ---
 
-## ✅ Benefits
+## 📈 Benefits
 
-- 💰 **Significant cost savings** using Blob Storage (cool/archive tier)
-- 🔁 **No API changes or downtime**
-- ☁️ **Fully serverless** and scalable
-- 📂 **Easy to implement and automate**
+- 💰 **Reduced storage cost** by offloading infrequently accessed records to Blob Storage
+- 🔁 **No impact on existing APIs or user experience**
+- ⚙️ **Seamless, automated archival and retrieval**
+- ☁️ **Scalable, serverless architecture**
 
 ---
 
-## 📂 Related Files
+## 🗂 Project Structure
 
-- `archive_old_records/`: Azure Function for archiving old data
-- `get_billing_record/`: Azure Function to fetch data with fallback logic
-- `requirements.txt`: Required libraries for Azure SDK
-- `README.md`: GitHub-friendly deployment guide
-- `Assignment.md`: This file, for formal documentation or submission
+```text
+/
+├── archive_old_records/        # Timer Function to archive old billing data
+├── get_billing_record/         # Function to retrieve record (from Cosmos or Blob)
+├── requirements.txt            # Python dependencies
+├── README.md                   # Deployment guide
+└── Assignment.md               # Documentation (this file)
+```
 
 ---
 
 ## 📝 Additional Notes
 
-- The archival function is designed to be **idempotent** – it will not re-upload or delete unless the record is already archived.
-- **Lifecycle policies** in Azure Blob Storage can be configured to automatically move archived data to **cool** or **archive tier** for further cost savings.
+- The archival process is **idempotent** — ensures no duplication or premature deletion
+- Azure Blob Storage supports **cool/archive tiers** and **lifecycle management policies** for additional cost savings
+- Can be enhanced to support encryption, compression, or indexing if needed
 
 ---
 
-## 👨‍💻 Contribution
+## 👨‍💻 Contributor
 
-This assignment solution was created by **Jayaramakrishna Puvvada** Mobile:9963060631 mail:jayaramakrishnapuvvada@gmail.com
+**Jayaramakrishna Puvvada**  
+📞 9963060631  
+📧 jayaramakrishnapuvvada@gmail.com  
+
 ---
-
