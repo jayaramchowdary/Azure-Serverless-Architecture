@@ -34,27 +34,6 @@ Split the data into **hot** (active) and **cold** (archived) storage:
 
 An **Azure Function** handles daily archival, while a **read abstraction layer** (Azure Function or API Management policy) makes data access seamless.
 
----
-
-## 🧱 Architecture Diagram
-
-```
-Client / API
-     │
-     ▼
-Abstraction Layer (Azure Function or API Mgmt)
-     │
- ┌───┴──────────┐
- │              │
- ▼              ▼
-Cosmos DB   Azure Blob Storage
- (< 3 mo)   (> 3 mo)
-     ▲              ▲
-     │              │
-     └── Timer Trigger Function (Archival)
-```
-
----
 
 ## ⚙️ Technical Components
 
@@ -171,15 +150,6 @@ def try_blob_storage(record_id):
 
 ## 👨‍💻 Contribution
 
-This assignment solution was created by **Kommineni Naresh** using hands-on Azure expertise and aided by **ChatGPT** for architecture design, code generation, and documentation.
-
+This assignment solution was created by **Jayaramakrishna Puvvada** Mobile:9963060631 mail:jayaramakrishnapuvvada@gmail.com
 ---
 
-## 📎 License
-
-MIT License
-```
-
----
-
-Let me know if you want this as a downloadable `.md` file or to package it in a GitHub repo with folder structure and scripts!
